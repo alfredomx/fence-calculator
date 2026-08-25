@@ -1826,12 +1826,12 @@ function updateToolbar() {
   btnRedo.disabled = !redoStack.length;
   btnNew.disabled = !currentRun();
   btnHouse.classList.toggle('on', state.house.visible);
-  if (state.sheetPhoto) {
-    lnkSheet.hidden = false;
-    lnkSheet.href = state.sheetPhoto;
-  } else {
-    lnkSheet.hidden = true;
-  }
+  // fall back to the preset's photo so drawings saved before this feature
+  // (or by an older build) still offer the sheet link
+  const preset = state.presetIdx != null ? EXAMPLES[state.presetIdx] : null;
+  const photo = state.sheetPhoto || (preset && preset.photo) || null;
+  lnkSheet.hidden = !photo;
+  if (photo) lnkSheet.href = photo;
 }
 
 btnNew.addEventListener('click', finishRun);
