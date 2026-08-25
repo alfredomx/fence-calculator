@@ -104,8 +104,35 @@ button.ghost { border-color: #bfdbfe; }
 button.solid { background: var(--blue); color: #fff; }
 button.solid:hover { filter: brightness(1.15); }
 
-.toolbar { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 8px; }
+.toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-bottom: 8px; }
 .toolbar .right { margin-left: auto; }
+/* every control in the bar shares the exact same height and vertical padding */
+.toolbar button,
+.toolbar select,
+.toolbar .sheet-link {
+  height: 32px;
+  padding: 0 12px;
+  display: inline-flex;
+  align-items: center;
+  box-sizing: border-box;
+}
+.toolbar button.icon { padding: 0 9px; }
+.toolbar button.icon svg { display: block; }
+.toolbar button.icon.peligro { background: var(--red); border-color: var(--red); color: #fff; }
+.sheet-link {
+  display: inline-flex;
+  align-items: center;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  padding: 6px 10px;
+  border-radius: 6px;
+  border: 1.5px solid #bfdbfe;
+  color: var(--blue);
+  text-decoration: none;
+}
+.sheet-link:hover { background: var(--blue); color: #fff; }
 .toolbar select {
   font-family: inherit;
   font-size: 11px;

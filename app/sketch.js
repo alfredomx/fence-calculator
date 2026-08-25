@@ -39,7 +39,8 @@ const MATERIALS_DEFAULT = {
   picketMat: 'cedar', picketLen: '6',    // WW/Cedar/Stained · 6FT/8FT
   capMat: 'spf',                         // SPF-Fir/Cedar (C&T jobs only)
   capLen: '12',                          // 2x6 cap board length: 10/12/14/16
-  trimLen: '10'                          // 1x2 trim strip length: 10/16
+  trimLen: '10',                         // 1x2 trim strip length: 10/16
+  nailSystem: 'ft'                       // 'ft': Elite (nails=rolls≈6/100ft) · 'clips': South Texas
 };
 
 function styleShort(s) {
@@ -1465,7 +1466,8 @@ function computeMaterials(sum) {
   const linePosts = sum.ft > 0 ? Math.ceil(sum.ft / 8) + 2 : 0;
   const metalPosts = sum.matches;
   const cedarGatePosts = sum.gatesCt * 2;
-  const concrete = Math.floor((linePosts + metalPosts + cedarGatePosts) * 0.55);
+  // client's rule: total posts / 2, rounded up
+  const concrete = Math.ceil((linePosts + metalPosts + cedarGatePosts) / 2);
 
   let rails = 0, p14 = 0, p16 = 0, ctFt = 0, rollNails = 0;
   sum.byStyle.forEach(e => {
@@ -1482,8 +1484,24 @@ function computeMaterials(sum) {
   const trimLen = parseInt(m.trimLen, 10) || 10;
   const cap = ctFt > 0 ? Math.ceil(ctFt / capLen) : 0;
   const trim = ctFt > 0 ? Math.ceil(ctFt / trimLen) : 0;
-  const clips = rails > 0 ? Math.ceil((rails * 4 + Math.round(ctFt)) / 26) : 0;
-  const rolls = rollNails > 0 ? Math.ceil(rollNails / 300) : 0;
+  // two nail systems, one per company:
+  // Elite writes Nails and Rolls as the SAME number, ≈6 per 100 ft of fence;
+  // South Texas counts framing clips (26 nails) and picket coil rolls (300)
+  let nailRows;
+  if (m.nailSystem === 'clips') {
+    const clips = rails > 0 ? Math.ceil((rails * 4 + Math.round(ctFt)) / 26) : 0;
+    const rolls = rollNails > 0 ? Math.ceil(rollNails / 300) : 0;
+    nailRows = [
+      clips ? { key: 'clips', label: 'Nail clips', sub: '(26/clip)', value: clips } : null,
+      rolls ? { key: 'rolls', label: 'Coil rolls', sub: '(300/roll)', value: rolls } : null
+    ];
+  } else {
+    const n = sum.ft > 0 ? Math.round(sum.ft * 0.0605) : 0;
+    nailRows = [
+      n ? { key: 'nails', label: 'Nails', sub: '(≈6/100 ft)', value: n } : null,
+      n ? { key: 'rolls', label: 'Rolls', sub: '(≈6/100 ft)', value: n } : null
+    ];
+  }
 
   const groups = [
     { title: 'POSTS', rows: [
@@ -1503,8 +1521,8 @@ function computeMaterials(sum) {
       p16 ? { key: 'pickets16', label: '1x6x' + (m.picketLen || '6') + ' · ' + (MAT_LABELS.picketMat[m.picketMat] || ''), value: p16 } : null
     ].filter(Boolean) },
     { title: 'NAILS & MISC', rows: [
-      clips ? { key: 'clips', label: 'Nail clips', sub: '(26/clip)', value: clips } : null,
-      rolls ? { key: 'rolls', label: 'Coil rolls', sub: '(300/roll)', value: rolls } : null,
+      nailRows[0],
+      nailRows[1],
       sum.hingeStrap ? { key: 'strap', label: 'Strap hinge kit', value: sum.hingeStrap } : null,
       sum.hingeT ? { key: 'thinge', label: 'T hinge kit', value: sum.hingeT } : null,
       metalPosts ? { key: 'dome', label: 'Dome cap', value: metalPosts } : null
@@ -1525,16 +1543,25 @@ function matVal(row) {
 function renderMaterials(sum, mats) {
   matGrid.innerHTML = '';
 
-  // job totals up top, each figure next to its concept
+  // job totals up top, each figure next to its concept; with mixed styles the
+  // fence footage breaks down per style, like the sheet's Fence table rows
   const totCol = document.createElement('div');
   const th = document.createElement('div');
   th.className = 'mat-group-title';
   th.textContent = 'JOB';
   totCol.appendChild(th);
-  const totRows = [
-    ['Fence', Math.round(sum.ft) + ' ft' + (sum.missing ? ' · ⚠' + sum.missing : '')],
-    ['Gates', sum.gates + (sum.gatesCt ? ' (' + sum.gatesCt + ' C&T)' : '')]
-  ];
+  const warn = sum.missing ? ' · ⚠' + sum.missing : '';
+  const totRows = [];
+  if (sum.byStyle.size > 1) {
+    const c = document.createElement('span');
+    c.className = 'cnt';
+    c.textContent = Math.round(sum.ft) + ' ft total' + warn;
+    th.appendChild(c);
+    sum.byStyle.forEach((e, k) => totRows.push(['Fence · ' + k, Math.round(e.ft) + ' ft']));
+  } else {
+    totRows.push(['Fence', Math.round(sum.ft) + ' ft' + warn]);
+  }
+  totRows.push(['Gates', sum.gates + (sum.gatesCt ? ' (' + sum.gatesCt + ' C&T)' : '')]);
   totRows.forEach(([k, v]) => {
     const row = document.createElement('div');
     row.className = 'mat-row';
@@ -1792,11 +1819,19 @@ const btnUndo = document.getElementById('btn-undo');
 const btnRedo = document.getElementById('btn-redo');
 const btnHouse = document.getElementById('btn-house');
 
+const lnkSheet = document.getElementById('lnk-sheet');
+
 function updateToolbar() {
   btnUndo.disabled = !undoStack.length;
   btnRedo.disabled = !redoStack.length;
   btnNew.disabled = !currentRun();
   btnHouse.classList.toggle('on', state.house.visible);
+  if (state.sheetPhoto) {
+    lnkSheet.hidden = false;
+    lnkSheet.href = state.sheetPhoto;
+  } else {
+    lnkSheet.hidden = true;
+  }
 }
 
 btnNew.addEventListener('click', finishRun);
@@ -1811,25 +1846,26 @@ btnHouse.addEventListener('click', () => {
   render(); save();
 });
 
-// destructive buttons arm on first click, execute on second (confirm() is unreliable
-// inside embedded viewers)
+// destructive button arms on first click (turns red), executes on second
 function armConfirm(b, needs, fn) {
-  const original = b.textContent;
+  const originalTitle = b.title;
   let timer = null;
+  const disarm = () => {
+    timer = null;
+    b.classList.remove('peligro');
+    b.title = originalTitle;
+  };
   b.addEventListener('click', () => {
     if (timer) {
-      clearTimeout(timer); timer = null;
-      b.textContent = original; b.classList.remove('peligro');
+      clearTimeout(timer);
+      disarm();
       fn();
       return;
     }
     if (!needs()) { fn(); return; }
-    b.textContent = 'Tap again to confirm';
     b.classList.add('peligro');
-    timer = setTimeout(() => {
-      timer = null;
-      b.textContent = original; b.classList.remove('peligro');
-    }, 3000);
+    b.title = 'Tap again to confirm';
+    timer = setTimeout(disarm, 3000);
   });
 }
 armConfirm(document.getElementById('btn-clear'), () => state.runs.length > 0, clearAll);
@@ -1866,37 +1902,55 @@ const EX = () => ({ type: 'existing' });                                  // nei
 const G = len => ({ type: 'gate', len: len });                            // regular gate
 const GC = len => ({ type: 'gate', len: len, gateStyle: 'ct' });          // cap & trim gate
 
+// RULE (operator, 2026-08-25): only measurements WRITTEN on each sheet enter
+// the drawing. Drawn-but-unmeasured pieces stay ?? — never made-up numbers.
+// Stretch totals that span a gate (10211: 22'6", Twyla C&T: 11FT, Azul: 105)
+// cannot be attached to a single segment, so those pieces are ?? too; the
+// written total lives in the preset label pending the client's real splits.
 const EXAMPLES = [
-  { label: 'Starlight · 10211 Pine River — 215 ft, 1 gate', style: S3,
-    sides: { bl: [B(22.6)], left: [B(52)], top: [B(73.48)], right: [B(52)], br: [B(15), G(5)] } },
-  { label: 'Starlight · 10207 Pine River — 164 ft, 1 gate', style: S3,
-    sides: { bl: [B(22.7)], left: [B(58)], top: [B(64.86)], right: [EX()], br: [B(17.7), G(5)] } },
-  { label: 'Starlight · 10142 Pine River — 61 ft, 1 gate', style: S3,
-    sides: { bl: [B(12.5)], left: [EX()], top: [EX()], right: [B(35)], br: [B(12.5), G(5)] } },
-  { label: 'Starlight · 10150 Pine River — 82 ft, 1 gate', style: S3,
-    sides: { bl: [B(13)], left: [EX()], top: [EX()], right: [B(56)], br: [B(12.9), G(5)] } },
-  { label: 'Starlight · 10215 Pine River — 115 ft, 1 gate', style: S3,
-    sides: { bl: [G(5), B(13)], left: [EX()], top: [B(55)], right: [B(3), B(34)], br: [B(13)] } },
-  { label: 'Starlight · 12822 Prairie Valley — 90 ft, 1 gate', style: S3,
-    sides: { bl: [B(16)], left: [EX()], top: [EX()], right: [B(19.75), B(32.25)], br: [B(21.33), G(5)] } },
-  { label: 'Starlight · 12826 Prairie Valley — 78 ft, 1 gate', style: S3,
-    sides: { bl: [B(15.5)], left: [EX()], top: [EX()], right: [B(46)], br: [B(15.5), G(5)] } },
-  { label: 'Perry · 10830 Twyla Rd — 91 ft + C&T mix, 2 C&T gates', style: S3,
-    sides: { bl: [GC(5), B(5, S3CT)], left: [B(85)], top: [EX()], right: [EX()], br: [B(6, S3CT), GC(5.08)] } },
-  { label: 'Perry · 10826 Twyla Rd — 11 ft C&T, 2 C&T gates', style: S3CT,
-    sides: { bl: [GC(5), B(6)], left: [EX()], top: [EX()], right: [EX()], br: [B(5), GC(5.08)] } },
-  { label: 'Perry · 1359 Azul Way — 105 ft C&T, 2 gates', style: S3CT,
-    sides: { bl: [GC(10.08), B(10)], left: [B(85)], top: [EX()], right: [EX()], br: [B(10), GC(5)] } },
-  { label: 'Perry · 9929 Paladin Ridge — 2 rails, 2 gates', style: S2,
-    sides: { bl: [G(5.08), B(15)], left: [B(93)], top: [B(45)], right: [B(96)], br: [B(12), G(5)] } },
-  { label: 'Perry · 14427 Chaparral Run — 2 rails, 2 gates', style: S2,
-    sides: { bl: [G(5)], left: [EX()], top: [EX()], right: [B(105)], br: [B(5), G(5)] } },
+  { label: 'Starlight · 10211 Pine River — 215 ft, 1 gate', style: S3, photo: 'sheets/10211-pine-river.jpg',
+    sides: { bl: [B(), G(), B()], left: [B(52)], top: [B(73.48)], right: [B(52)], br: [B(15)] } },
+  // 7' / 4' gate / 7' exactly as the crew labeled them
+  { label: 'Starlight · 10207 Pine River — 164 ft, 1 gate', style: S3, photo: 'sheets/10207-pine-river.jpg',
+    sides: { bl: [B(22.7)], left: [B(58)], top: [B(64.86)], right: [EX()], br: [B(7), G(4), B(7)] } },
+  { label: 'Starlight · 10142 Pine River — 61 ft, 1 gate', style: S3, photo: 'sheets/10142-pine-river.jpg',
+    sides: { bl: [B(12.42)], left: [EX()], top: [EX()], right: [B(35)], br: [B(12.5), G()] } },
+  { label: 'Starlight · 10150 Pine River — 82 ft, 1 gate', style: S3, photo: 'sheets/10150-pine-river.jpg',
+    sides: { bl: [B(13)], left: [EX()], top: [EX()], right: [B(56)], br: [B(12.9), G()] } },
+  // 4 = the written 13' total minus the written 9' piece (arithmetic, not a guess)
+  { label: 'Starlight · 10215 Pine River — 115 ft, 1 gate', style: S3, photo: 'sheets/10215-pine-river.jpg',
+    sides: { bl: [B(4), G(), B(9)], left: [EX()], top: [B(55)], right: [B(3), B(34)], br: [B(13)] } },
+  { label: 'Starlight · 12822 Prairie Valley — 90 ft, 1 gate', style: S3, photo: 'sheets/12822-prairie-valley.jpg',
+    sides: { bl: [B(16)], left: [EX()], top: [EX()], right: [B(19.75), B(32.25)], br: [B(), G(10), B()] } },
+  { label: 'Starlight · 12826 Prairie Valley — 78 ft, 1 gate', style: S3, photo: 'sheets/12826-prairie-valley.jpg',
+    sides: { bl: [B(), G(), B()], left: [EX()], top: [EX()], right: [B(46)], br: [B(15.42)] } },
+  // two fence rows on the sheet: 3 Rails 91FT (85+6) + 3 Rails C&T 11FT (the
+  // two unmeasured stubs flanking the gates carry the C&T style)
+  { label: 'Perry · 10830 Twyla Rd — 91 ft + 11 ft C&T, 2 C&T gates', style: S3, photo: 'sheets/10830-twyla.jpg',
+    sides: { bl: [GC(5), B(null, S3CT)], left: [B(85)], top: [EX()], right: [EX(), B(6)], br: [B(null, S3CT), GC(5.08)] } },
+  { label: 'Perry · 10826 Twyla Rd — 11 ft C&T, 2 C&T gates', style: S3CT, photo: 'sheets/10826-twyla.jpg',
+    sides: { bl: [GC(5), B()], left: [EX()], top: [EX()], right: [EX()], br: [B(), GC(5.08)] } },
+  // two fence rows: 3 Rails 150FT (90+50+10?) — the sheet's C&T row is 10FT,
+  // which is the 10' bottom-right piece (also explains its 2x4x10 x3 rails)
+  { label: 'Perry · 10830 Saleh Corner — 150 ft + 10 ft C&T, 2 C&T gates', style: S3, photo: 'sheets/10830-saleh-corner.jpg',
+    sides: { bl: [GC(5)], left: [B(90)], top: [B(50)], right: [EX()], br: [B(10, S3CT), GC(5.08)] } },
+  { label: 'Perry · 1359 Azul Way — 105 ft C&T, 2 gates', style: S3CT, photo: 'sheets/1359-azul-way.jpg',
+    sides: { bl: [GC(10.08), B()], left: [B(85)], top: [EX()], right: [EX()], br: [B(), GC(5)] } },
+  { label: 'Perry · 9929 Paladin Ridge — 2 rails, 2 gates', style: S2, photo: 'sheets/9929-paladin-ridge.webp',
+    sides: { bl: [G(5.08), B()], left: [B(93)], top: [B(45)], right: [B(96)], br: [B(), G(5)] } },
+  { label: 'Perry · 14427 Chaparral Run — 2 rails, 2 gates', style: S2, photo: 'sheets/14427-chaparral-run.webp',
+    sides: { bl: [G(5), B()], left: [EX()], top: [EX()], right: [B(105)], br: [B(), G(5)] } },
+  // top side = 97'13" plus the 3'10" piece from the survey PIN to the corner;
+  // gate widths are not written on this sketch → ??
   { label: 'South Texas · 5147 Lottchen — 325 ft 2R C&T 1x6, 2 gates', style: S2CT16,
-    materials: { picketLen: '6', capLen: '12', capMat: 'cedar' },
-    sides: { bl: [GC(5), B(28.21)], left: [B(77)], top: [B(97.13)], right: [B(90)], br: [B(28.21), GC(5)] } },
-  // irregular 6-sided lot — custom frame instead of the standard rectangle
+    photo: 'sheets/5147-lottchen.webp',
+    materials: { picketLen: '6', capLen: '12', capMat: 'cedar', nailSystem: 'clips' },
+    sides: { bl: [GC(), B(28.21)], left: [B(77)], top: [B(97.13), B(3.83)], right: [B(90)], br: [B(28.21), GC()] } },
+  // irregular 6-sided lot — custom frame instead of the standard rectangle.
+  // South Texas-style materials sheet → clips nail system
   { label: 'Perry · 10518 Hot Shoe Lane (Kallison) — 752 ft, 2 gates',
     style: { rails: 3, finish: 'std', picket: '1x4', mp: false, wp: true },
+    materials: { nailSystem: 'clips' },
     frame: [
       { x: 450, y: 440 },   // house left wall
       { x: 392, y: 452 },
@@ -1911,7 +1965,7 @@ const EXAMPLES = [
     pieces: [[G(10)], [B(20)], [B(195)], [B(59.36)], [B(312.86)], [B(115)], [B(50)], [G(10)]] }
 ];
 
-function loadPreset(p) {
+function loadPreset(p, idx) {
   pushUndo();
   const house = { x: 450, y: 320, w: 180, h: 120, visible: true };
   const AL = { x: 450, y: 440 }, BLc = { x: 280, y: 440 }, TLc = { x: 280, y: 160 };
@@ -1948,7 +2002,9 @@ function loadPreset(p) {
     runs: [{ pts: pts, closed: false, finished: true, segs: segs }],
     style: { ...p.style },
     materials: Object.assign({ ...MATERIALS_DEFAULT }, p.materials || {}),
-    matOv: {}
+    matOv: {},
+    sheetPhoto: p.photo || null, // original work-order photo (local only, not in the public repo)
+    presetIdx: idx != null ? idx : null // keeps the combo naming the project across reloads
   };
   sel = null;
   vb = { x: 0, y: 0, w: 1000, h: 560 };
@@ -1971,8 +2027,12 @@ const selExample = document.getElementById('sel-example');
   selExample.addEventListener('change', () => {
     const i = parseInt(selExample.value, 10);
     if (Number.isNaN(i) || !EXAMPLES[i]) return;
-    loadPreset(EXAMPLES[i]); // replaces the drawing; Undo brings it back
+    loadPreset(EXAMPLES[i], i); // replaces the drawing; Undo brings it back
   });
+  // after a reload, keep naming the project the saved drawing came from
+  if (state.presetIdx != null && EXAMPLES[state.presetIdx]) {
+    selExample.value = String(state.presetIdx);
+  }
 })();
 
 // ---------------------------------------------------------------- init
