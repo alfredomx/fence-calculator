@@ -1,0 +1,72 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>Fence Estimator</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="styles.css?v=5">
+</head>
+<body>
+
+<header id="topbar">
+  <div class="brand">FENCE ESTIMATOR</div>
+  <div class="brand-sub">Plan view</div>
+</header>
+
+<div class="layout">
+
+  <aside class="card" id="defaults-panel"></aside>
+
+  <div class="main-col">
+    <div class="card">
+      <p class="hint">
+        Tap to place corners and trace the fence line. Tap the starting point to close the shape.
+        Tap the fence line to select a section; right-click (or press and hold) the line to add a post there.
+        Tap a corner to switch post/point; right-click it for delete. Tap a loose end to keep drawing;
+        while drawing, tap another line's end to join them. Drag empty space to pan, pinch or scroll to zoom.
+      </p>
+      <div class="toolbar">
+        <button id="btn-new">+ New line</button>
+        <button id="btn-undo" title="Undo (Ctrl+Z)">Undo</button>
+        <button id="btn-redo" title="Redo (Ctrl+Y)">Redo</button>
+        <button id="btn-house">House on/off</button>
+        <button id="btn-fit">Fit view</button>
+        <select id="sel-example" title="Load a real work-order sheet as an example"></select>
+        <button id="btn-clear" class="right">Clear all</button>
+      </div>
+      <div class="lienzo-wrap">
+        <svg id="sketch" viewBox="0 0 1000 560" preserveAspectRatio="xMidYMid meet" aria-label="Fence sketch">
+          <g id="scene"></g>
+        </svg>
+        <div id="popup" hidden></div>
+      </div>
+    </div>
+
+    <div class="card" id="sections-card">
+      <table class="tramos" id="tbl-sections" style="display:none">
+        <thead>
+          <tr><th>Section</th><th>Type</th><th>Feet</th><th>Style</th></tr>
+        </thead>
+        <tbody id="tbody-sections"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <aside class="card" id="materials-card">
+    <div class="mat-head">
+      <div class="card-title">MATERIALS</div>
+      <div class="spacer"></div>
+      <button id="btn-recalc" class="ghost">Recalc</button>
+      <button id="btn-print" class="solid">Print</button>
+    </div>
+    <div class="mat-note">Calculated from the drawing · − / + adjusts · edited rows in red</div>
+    <div id="materials-grid"></div>
+  </aside>
+
+</div>
+
+<script type="module" src="sketch.js?v=5"></script>
+</body>
+</html>

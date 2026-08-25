@@ -1,0 +1,9 @@
+# client work-order photos and notes — never publish (names, addresses, PO numbers)
+*.jpg
+*.webp
+MATERIALS-SPEC.md
+
+# local tooling
+.claude/
+# old demo kept only as local reference
+fence-calculator.html
