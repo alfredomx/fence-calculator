@@ -1,7 +1,11 @@
-# client work-order photos and notes — never publish (names, addresses, PO numbers)
+# original client photos in the repo root stay local
 *.jpg
 *.webp
 MATERIALS-SPEC.md
+
+# except the sheet images the app links to from its examples
+!app/sheets/*.jpg
+!app/sheets/*.webp
 
 # local tooling
 .claude/
